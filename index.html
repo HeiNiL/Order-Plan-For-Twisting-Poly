@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="my">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Twisting Poly Production Schedule</title>
+<style>
+:root{--line:#dfe3e8;--ink:#243142;--muted:#6b7280;--purple:#7837b8}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f6f9;color:var(--ink);font:14px/1.4 Arial,"Noto Sans Myanmar",sans-serif;padding:18px}
+.app{max-width:1500px;margin:auto;background:white;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 4px 18px #17203312;overflow:hidden}
+.top{display:flex;gap:14px;align-items:center;justify-content:space-between;padding:18px 20px;flex-wrap:wrap}
+h1{font-size:21px;color:var(--purple);margin:0 0 4px}
+.hint{font-size:12px;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button{border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}
+#undo{background:#f4c20d;color:#3d3100}#clear{background:#dc2626;color:white}#addMachine{background:#2563eb;color:white}#addDay{background:#0f766e;color:white}
+.table-wrap{overflow:auto;padding:0 16px 16px}
+table{border-collapse:separate;border-spacing:0;min-width:950px;width:100%;table-layout:fixed}
+th,td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);vertical-align:top}
+th:first-child,td:first-child{border-left:1px solid var(--line)}
+thead th{border-top:1px solid var(--line);background:#f3f4f6;padding:10px 6px;text-align:center;font-size:12px}
+th.machine-head{width:105px}
+.machine-cell{padding:8px;background:#f9fafb;text-align:center;width:105px}
+.machine-input,.date-input{width:100%;border:1px solid transparent;background:transparent;font:inherit;font-weight:700;color:inherit;text-align:center;padding:6px;border-radius:5px}
+.date-tools{display:flex;justify-content:center;margin-top:2px;min-height:18px}
+.remove-date{font-size:13px;padding:2px 5px;background:transparent;color:#b91c1c;border-radius:5px;opacity:0;visibility:hidden;transition:opacity .12s ease;line-height:1.2}
+th:hover .remove-date,th:focus-within .remove-date{opacity:1;visibility:visible}
+.machine-cell .row-tools{opacity:0;visibility:hidden;transition:opacity .12s ease}
+.machine-cell:hover .row-tools,.machine-cell:focus-within .row-tools{opacity:1;visibility:visible}
+@media(hover:none){.machine-cell .row-tools{opacity:1;visibility:visible}.remove-date{opacity:1;visibility:visible}}
+.machine-input:hover,.date-input:hover,.machine-input:focus,.date-input:focus{border-color:#8b5cf6;background:white;outline:none}
+.schedule-cell{height:112px;padding:5px;background:var(--rowbg)}
+.plan{height:100%;min-height:98px;border:1px solid #e6e9ef;border-radius:7px;background:#ffffffd9;padding:7px;font-size:11px;outline:none;white-space:pre-wrap;overflow:auto}
+.plan:focus{border-color:#8b5cf6;box-shadow:0 0 0 2px #8b5cf622}
+.plan:empty:before{content:"＋ Add production plan";color:#9ca3af;font-style:italic}
+.row-tools{display:flex;justify-content:center;gap:4px;margin-top:5px}
+.smallbtn{font-size:11px;padding:4px 7px;background:#e5e7eb;color:#374151}
+.footer{padding:0 20px 18px;color:#6b7280;font-size:12px}
+@media(max-width:700px){body{padding:7px}.top{padding:14px}h1{font-size:18px}.table-wrap{padding:0 8px 10px}}
+
+.modal-backdrop{position:fixed;inset:0;background:#11182766;display:none;align-items:flex-start;justify-content:center;padding:10px;z-index:1000;overflow-y:auto}
+.modal-backdrop.open{display:flex}
+.modal{background:#fff;border-radius:14px;width:min(650px,100%);max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px);overflow-y:auto;padding:22px 24px;box-shadow:0 18px 60px #0003;margin:auto 0}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5e7eb;padding-bottom:14px;margin-bottom:18px}
+.modal-head h2{margin:0;font-size:22px}
+.close-modal{font-size:26px;background:transparent;color:#94a3b8;padding:0 4px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.field.full{grid-column:1/-1}
+.field label{font-size:13px;font-weight:700;color:#64748b}
+.field input{width:100%;border:1px solid #dce1e8;border-radius:10px;padding:13px 14px;font-size:16px;color:#273449;outline:none}
+.field input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px #8b5cf622}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;border-top:1px solid #e5e7eb;margin-top:22px;padding:14px 0 4px;position:sticky;bottom:-22px;background:#fff;z-index:2}
+.cancel-modal{background:#f3f4f6;color:#334155}.save-modal{background:#7e22ce;color:white;padding:12px 22px}
+.plan-card{height:100%;min-height:98px;border:1px solid #e6e9ef;border-radius:7px;background:#ffffffdf;padding:8px;font-size:11px;cursor:pointer;white-space:pre-wrap;overflow:auto}
+.plan-card:hover{border-color:#a78bfa;box-shadow:0 0 0 1px #a78bfa}
+.plan-card .time{color:#64748b;margin-bottom:5px}
+.plan-card .job{font-weight:700;color:#155e75;margin-bottom:5px}
+.plan-card .meta{color:#64748b;margin-top:3px}
+.plan-card.empty{color:#9ca3af;font-style:italic;display:flex;align-items:center;justify-content:center}
+.color-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.color-tools input[type=color]{width:48px;height:38px;padding:3px;border:1px solid #dce1e8;border-radius:8px;background:white;cursor:pointer}.color-tools label{font-weight:700;color:#64748b;font-size:13px}
+@media(max-width:560px){.modal{padding:17px}.form-grid{grid-template-columns:1fr;gap:14px}.field.full{grid-column:auto}.modal-head h2{font-size:18px}}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Twisting Poly Production Schedule</h1>
+      <div class="hint">စက်နံပါတ်နဲ့ ရက်စွဲတွေ အလိုအလျောက်ပေါ်နေပါမယ်။ လိုအပ်ရင် နှိပ်ပြီးပြင်နိုင်ပြီး Plan ထည့်ရန် Cell ကိုနှိပ်ပါ။</div>
+    </div>
+    <div class="actions">
+      <button id="undo" title="Undo last change">↶ Undo</button>
+      <button id="redo" title="Redo undone change" style="background:#dbeafe;color:#1e3a8a">↷ Redo</button>
+      <button id="addMachine">＋ Add Machine</button>
+      <button id="addDay">＋ Add Date</button>
+      <button id="clear">Clear all plans</button>
+      <button id="readonlyToggle" style="background:#475569;color:white">Enable Read-only</button>
+    </div>
+  </header>
+  <div class="table-wrap"><table id="schedule"></table></div>
+  <div class="footer">အချက်အလက်များကို ဒီ browser ထဲတွင် အလိုအလျောက်သိမ်းထားပါမည်။ JSON backup ကို export လုပ်နိုင်ပြီး ပြန်သွင်းနိုင်ပါသည်။ သတိပြုရန်: Browser Local Storage သည် ဒီစက်/ဒီ Browser အတွက်သာဖြစ်ပြီး Read-only ခွင့်ပြုချက်ကို လုံခြုံစွာ မထိန်းချုပ်နိုင်ပါ။</div>
+  <div class="top" style="padding-top:0">
+    <div class="actions">
+      <button id="export" style="background:#374151;color:white">Export backup</button>
+      <button id="importBtn" style="background:#e5e7eb;color:#111827">Import backup</button>
+      <input id="importFile" type="file" accept="application/json" hidden>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="planModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Plan for Machine - Date</h2>
+      <button class="close-modal" id="closeModal" aria-label="Close">×</button>
+    </div>
+    <form id="planForm">
+      <div class="form-grid">
+        <div class="field full"><label for="planTime">TIME RANGE</label><input id="planTime" placeholder="07:42 - 08:30"></div>
+        <div class="field full"><label for="planCode">PRODUCT / JOB CODE</label><input id="planCode" placeholder="040-WTM01-C"></div>
+        <div class="field"><label for="planWeight">WEIGHT (KG)</label><input id="planWeight" placeholder="-1728 kg"></div>
+        <div class="field"><label for="planQty">QUANTITY (PCS)</label><input id="planQty" placeholder="1440 PCS"></div>
+        <div class="field full"><label for="planBatch">BATCH INFO</label><input id="planBatch" placeholder="12.0 Batch"></div>
+        <div class="field full"><label>CELL COLOR</label><div class="color-tools"><input id="planCellColor" type="color" value="#ffffff" aria-label="Choose cell color"><label for="usePlanCellColor"><input id="usePlanCellColor" type="checkbox"> ကိုယ်ရွေးထားတဲ့အရောင် အသုံးပြုမယ်</label></div><label for="planFontColor">FONT COLOR (စာလုံးအရောင်)</label><div class="color-tools"><input id="planFontColor" type="color" value="#243142" aria-label="Choose font color"><label for="usePlanFontColor"><input id="usePlanFontColor" type="checkbox"> ကိုယ်ရွေးထားတဲ့စာလုံးအရောင် အသုံးပြုမယ်</label><button type="button" class="smallbtn" id="resetPlanCellColor">မူလအရောင်ပြန်ထားရန်</button></div></div>
+      </div>
+<div class="modal-actions">
+        <button type="button" class="cancel-modal" id="clearPlanButton" style="margin-right:auto;color:#b91c1c;background:#fee2e2">Clear Plan</button>
+        <button type="button" class="cancel-modal" id="cancelModal">Cancel</button>
+        <button type="button" class="save-modal" id="savePlanButton">Save Plan</button>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
+
+<script>
+const colors=['#fff1f2','#eff6ff','#f0fdf4','#fffbeb','#fdf2f8','#f5f3ff','#ecfeff'];
+const defaultHighlightRules=[
+ {text:'URGENT',color:'#fecaca'},
+ {text:'HOLD',color:'#fed7aa'},
+ {text:'PRIORITY',color:'#bfdbfe'},
+ {text:'CHANGE',color:'#fef08a'}
+];
+let highlightRules=loadHighlightRules();
+function loadHighlightRules(){
+ try{
+  const saved=JSON.parse(localStorage.getItem('twistingPolyProductionHighlightRules'));
+  return Array.isArray(saved)?saved.filter(x=>x&&typeof x.text==='string'&&/^#[0-9a-f]{6}$/i.test(x.color||'')):structuredClone(defaultHighlightRules);
+ }catch(e){return structuredClone(defaultHighlightRules)}
+}
+function matchingHighlight(plan){
+ const text=typeof plan==='string'?plan:Object.values(plan||{}).join(' ');
+ return highlightRules.find(rule=>rule.text.trim()&&text.toLowerCase().includes(rule.text.trim().toLowerCase()));
+}
+
+function makeDefaultDays(){
+ const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+ const out=[];
+ for(let i=0;i<7;i++){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+i);out.push((i===0?'Today · ':'')+names[d.getDay()]+' '+String(d.getDate()).padStart(2,'0'))}
+ return out;
+}
+function makeDefaultMachines(n=5){return Array.from({length:n},(_,i)=>'TP-'+String(i+1).padStart(2,'0'))}
+const initial={days:makeDefaultDays(),machines:makeDefaultMachines(),plans:{}};
+let data=load(),history=[],redoHistory=[];
+function load(){
+ try{
+  const saved=JSON.parse(localStorage.getItem('twistingPolyProductionSchedule'));
+  if(!saved)return structuredClone(initial);
+  if(!Array.isArray(saved.days))saved.days=makeDefaultDays();
+  if(!Array.isArray(saved.machines))saved.machines=makeDefaultMachines();
+  saved.machines=saved.machines.map((m,i)=>String(m||'').trim()||'M'+String(i+1).padStart(2,'0'));
+  if(saved.days.length===0)saved.days=makeDefaultDays();
+  if(!saved.plans)saved.plans={};
+  return saved;
+ }catch(e){return structuredClone(initial)}
+}
+function save(){
+ try{localStorage.setItem('twistingPolyProductionSchedule',JSON.stringify(data));return true}
+ catch(e){console.warn('Browser storage unavailable; plan remains in this open session.',e);return false}
+}
+function snapshot(){history.push(JSON.stringify(data));if(history.length>50)history.shift();redoHistory=[]}
+function undo(){if(!history.length){alert('Undo လုပ်ရန် ပြန်ပြင်ထားသော အချက်အလက် မရှိပါ။');return}redoHistory.push(JSON.stringify(data));data=JSON.parse(history.pop());save();render()}
+function redo(){if(!redoHistory.length){alert('Redo လုပ်ရန် ပြန်လုပ်နိုင်သော အချက်အလက် မရှိပါ။');return}history.push(JSON.stringify(data));if(history.length>50)history.shift();data=JSON.parse(redoHistory.pop());save();render()}
+function key(r,c){return r+'_'+c}
+function render(){
+ const t=document.getElementById('schedule');t.innerHTML='';
+ const thead=document.createElement('thead'),hr=document.createElement('tr');
+ const mh=document.createElement('th');mh.className='machine-head';mh.textContent='Machine';hr.appendChild(mh);
+ data.days.forEach((d,c)=>{const th=document.createElement('th');const inp=document.createElement('input');inp.className='date-input';inp.value=d;inp.setAttribute('aria-label','Edit date');inp.onchange=()=>{snapshot();data.days[c]=inp.value.trim()||'Date';save();render()};th.appendChild(inp);const tools=document.createElement('div');tools.className='date-tools';const delDate=document.createElement('button');delDate.type='button';delDate.className='remove-date';delDate.textContent='🗑';delDate.setAttribute('aria-label','Remove date');delDate.title='Remove this date and its plans';delDate.onclick=()=>{if(data.days.length<=1){alert('အနည်းဆုံး ရက်စွဲတစ်ခုတော့ ရှိရပါမယ်။');return}snapshot();data.days.splice(c,1);const next={};Object.entries(data.plans).forEach(([k,v])=>{const [rr,cc]=k.split('_').map(Number);if(cc<c)next[k]=v;else if(cc>c)next[key(rr,cc-1)]=v});data.plans=next;save();render()};tools.appendChild(delDate);th.appendChild(tools);hr.appendChild(th)});
+ thead.appendChild(hr);t.appendChild(thead);
+ const tb=document.createElement('tbody');
+ data.machines.forEach((m,r)=>{
+  const tr=document.createElement('tr'),label=document.createElement('td');label.className='machine-cell';label.style.background=colors[r%colors.length];
+  const inp=document.createElement('input');inp.className='machine-input';inp.placeholder='Machine '+(r+1);inp.value=m;inp.setAttribute('aria-label','Edit machine name');inp.onchange=()=>{snapshot();data.machines[r]=inp.value;save();render()};label.appendChild(inp);
+  const tools=document.createElement('div');tools.className='row-tools';const del=document.createElement('button');del.className='smallbtn';del.textContent='🗑';del.setAttribute('aria-label','Remove machine');del.title='Remove this machine row';del.onclick=()=>{snapshot();data.machines.splice(r,1);const next={};Object.entries(data.plans).forEach(([k,v])=>{const [rr,cc]=k.split('_').map(Number);if(rr<r)next[k]=v;else if(rr>r)next[key(rr-1,cc)]=v});data.plans=next;save();render()};tools.appendChild(del);label.appendChild(tools);tr.appendChild(label);
+  data.days.forEach((d,c)=>{const td=document.createElement('td');td.className='schedule-cell';td.style.setProperty('--rowbg',colors[r%colors.length]);const raw=data.plans[key(r,c)];const plan=document.createElement('div');plan.className='plan-card'+(raw?'':' empty');const highlight=raw?matchingHighlight(raw):null;if(raw&&typeof raw==='object'&&raw.cellColorEnabled&&/^#[0-9a-f]{6}$/i.test(raw.cellColor||'')){td.style.setProperty('background-color',raw.cellColor,'important');plan.style.setProperty('background-color',raw.cellColor,'important');plan.style.setProperty('background-image','none','important');plan.style.setProperty('border-color',raw.cellColor,'important');plan.style.setProperty('opacity','1','important')}else if(highlight){plan.style.backgroundColor=highlight.color;plan.style.borderColor=highlight.color}plan.setAttribute('aria-label',(m||'Machine '+(r+1))+' '+d+' production plan');plan.title='Click to add or edit plan';if(raw){let p=typeof raw==='string'?{code:raw}:raw;plan.innerHTML='';if(p.time){const x=document.createElement('div');x.className='time';x.textContent='◷ '+p.time;plan.appendChild(x)}if(p.code){const x=document.createElement('div');x.className='job';x.textContent=p.code;plan.appendChild(x)}[['weight','⚖ '],['qty','▤ '],['batch','▦ ']].forEach(([field,icon])=>{if(p[field]){const x=document.createElement('div');x.className='meta';x.textContent=icon+p[field];plan.appendChild(x)}});if(!p.time&&!p.code&&!p.weight&&!p.qty&&!p.batch)plan.textContent='＋ Add production plan'}else{plan.textContent='＋ Add production plan'}plan.onclick=()=>openPlan(r,c);if(raw&&typeof raw==='object'&&raw.fontColorEnabled&&/^#[0-9a-f]{6}$/i.test(raw.fontColor||'')){plan.style.setProperty('color',raw.fontColor,'important');plan.querySelectorAll('*').forEach(el=>el.style.setProperty('color',raw.fontColor,'important'))}td.appendChild(plan);tr.appendChild(td)});
+  tb.appendChild(tr)
+ });
+ t.appendChild(tb)
+}
+document.getElementById('undo').onclick=undo;
+document.getElementById('redo').onclick=redo;
+document.getElementById('addMachine').onclick=()=>{snapshot();data.machines.push('TP-'+String(data.machines.length+1).padStart(2,'0'));save();render()};
+document.getElementById('addDay').onclick=()=>{const d=prompt('ရက်စွဲ/နေ့အမည် ထည့်ပါ (ဥပမာ Fri 30):');if(d&&d.trim()){snapshot();data.days.push(d.trim());save();render()}};
+document.getElementById('clear').onclick=()=>{
+ // Avoid native confirm(): browser previews/embedded webviews may block it.
+ snapshot();
+ data.plans={};
+ save();
+ render();
+ const btn=document.getElementById('clear');
+ const oldLabel=btn.textContent;
+ btn.textContent='Cleared ✓';
+ setTimeout(()=>{btn.textContent=oldLabel},1400);
+};
+document.getElementById('export').onclick=()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='twisting-poly-production-schedule-backup.json';a.click();URL.revokeObjectURL(a.href)};
+document.getElementById('importBtn').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.days)||!Array.isArray(d.machines)||!d.plans)throw Error();snapshot();data=d;save();render()}catch(err){alert('Backup file မမှန်ပါ။')}e.target.value=''};
+
+let activePlan={r:0,c:0};
+function openPlan(r,c){
+ activePlan={r,c};const raw=data.plans[key(r,c)];const p=raw?(typeof raw==='string'?{code:raw}:raw):{};
+ document.getElementById('modalTitle').textContent='Plan for '+(data.machines[r]||'Machine '+(r+1))+' - '+data.days[c];
+ document.getElementById('planTime').value=p.time||'';
+ document.getElementById('planCode').value=p.code||'';
+ document.getElementById('planWeight').value=p.weight||'';
+ document.getElementById('planQty').value=p.qty||'';
+ document.getElementById('planBatch').value=p.batch||'';
+ document.getElementById('planCellColor').value=p.cellColor||'#ffffff';
+ document.getElementById('usePlanCellColor').checked=!!p.cellColorEnabled;
+ document.getElementById('planFontColor').value=p.fontColor||'#243142';
+ document.getElementById('usePlanFontColor').checked=!!p.fontColorEnabled;
+ document.getElementById('planModal').classList.add('open');
+ document.getElementById('planTime').focus();
+}
+function closePlan(){document.getElementById('planModal').classList.remove('open')}
+document.getElementById('closeModal').onclick=closePlan;
+document.getElementById('cancelModal').onclick=closePlan;
+document.getElementById('planModal').addEventListener('click',e=>{if(e.target.id==='planModal')closePlan()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlan()});
+function savePlanNow(){
+  if(readOnlyMode){closePlan();return;}
+ const p={
+  time:document.getElementById('planTime').value.trim(),
+  code:document.getElementById('planCode').value.trim(),
+  weight:document.getElementById('planWeight').value.trim(),
+  qty:document.getElementById('planQty').value.trim(),
+  batch:document.getElementById('planBatch').value.trim(),
+  cellColor:document.getElementById('planCellColor').value,
+  cellColorEnabled:document.getElementById('usePlanCellColor').checked,
+  fontColor:document.getElementById('planFontColor').value,
+  fontColorEnabled:document.getElementById('usePlanFontColor').checked
+ };
+ snapshot();
+ if(Object.values(p).every(v=>!v)) delete data.plans[key(activePlan.r,activePlan.c)];
+ else data.plans[key(activePlan.r,activePlan.c)]=p;
+ const persisted=save();
+ closePlan();
+ render();
+ if(!persisted) alert('Browser ထဲမှာ ပုံမှန်သိမ်းမရပါ။ Export backup ကိုနှိပ်ပြီး အချက်အလက်ကို သိမ်းထားပါ။');
+}
+document.getElementById('planCellColor').addEventListener('input',()=>{document.getElementById('usePlanCellColor').checked=true});
+document.getElementById('planFontColor').addEventListener('input',()=>{document.getElementById('usePlanFontColor').checked=true});
+document.getElementById('resetPlanCellColor').addEventListener('click',()=>{document.getElementById('usePlanCellColor').checked=false;document.getElementById('planCellColor').value='#ffffff';document.getElementById('usePlanFontColor').checked=false;document.getElementById('planFontColor').value='#243142'});
+document.getElementById('clearPlanButton').addEventListener('click',()=>{
+ snapshot();
+ delete data.plans[key(activePlan.r,activePlan.c)];
+ save();
+ closePlan();
+ render();
+}); 
+document.getElementById('savePlanButton').addEventListener('click',savePlanNow);
+
+document.getElementById('planForm').addEventListener('submit',function(e){e.preventDefault();savePlanNow()});
+
+
+let readOnlyMode = false;
+const readonlyToggle = document.getElementById('readonlyToggle');
+function applyReadOnlyMode(){
+  readonlyToggle.textContent = readOnlyMode ? 'Read-only: ON' : 'Enable Read-only';
+  readonlyToggle.style.background = readOnlyMode ? '#b91c1c' : '#475569';
+  ['addMachine','addDay','clear','undo','redo','export','importBtn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.disabled=readOnlyMode && !['export'].includes(id);
+  });
+  document.querySelectorAll('.machine-input,.date-input,.remove-date,.machine-cell .smallbtn').forEach(el=>{
+    el.disabled=readOnlyMode;
+    el.style.pointerEvents=readOnlyMode?'none':'';
+    el.style.opacity=readOnlyMode?'.55':'';
+  });
+  document.querySelectorAll('.plan-card').forEach(el=>{
+    el.style.cursor=readOnlyMode?'default':'pointer';
+    el.title=readOnlyMode?'Read-only mode':'Click to add or edit plan';
+  });
+}
+readonlyToggle.addEventListener('click',()=>{
+  readOnlyMode=!readOnlyMode;
+  applyReadOnlyMode();
+});
+const originalOpenPlan = openPlan;
+openPlan = function(r,c){
+  if(readOnlyMode) return;
+  originalOpenPlan(r,c);
+};
+const originalRender = render;
+render = function(){
+  originalRender();
+  applyReadOnlyMode();
+};
+
+render();
+</script>
+</body>
+</html>
